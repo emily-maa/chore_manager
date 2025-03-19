@@ -34,17 +34,52 @@ app.get('/child', (req, res) => {
   });
 });
 
-// API Endpoint Example: Add a New User
-app.post('/users', (req, res) => {
-  const { name, email } = req.body;
-  db.query('INSERT INTO users (name, email) VALUES (?, ?)', [name, email], (err, results) => {
-    if (err) {
-      res.status(500).send(err);
-    } else {
-      res.json({ id: results.insertId, name, email });
-    }
+// POST /api/households endpoint to create a new household
+app.post('/api/households', (req, res) => {
+  const { parentUsername, children } = req.body;
+
+  // Validate required fields
+  if (!parentUsername) {
+    return res.status(400).json({ error: 'Parent username is required.' });
+  }
+
+  if (!Array.isArray(children) || children.length === 0) {
+    return res.status(400).json({ error: 'At least one child username is required.' });
+  }
+
+  // Generate a unique household ID
+  const householdId = uuidv4();
+
+  // Create household data with parent and children (each child gets a unique ID)
+  households[householdId] = {
+    parent: { username: parentUsername },
+    children: children.map(childUsername => ({
+      username: childUsername,
+      childId: uuidv4()
+    }))
+  };
+
+  // Optional: Log the created household for debugging
+  console.log(`Household created: ${householdId}`, households[householdId]);
+
+  // Respond with the household details
+  return res.status(201).json({
+    householdId,
+    parent: households[householdId].parent,
+    children: households[householdId].children
   });
 });
+// API Endpoint Example: Add a New User
+// app.post('/users', (req, res) => {
+//   const { name, email } = req.body;
+//   db.query('INSERT INTO users (name, email) VALUES (?, ?)', [name, email], (err, results) => {
+//     if (err) {
+//       res.status(500).send(err);
+//     } else {
+//       res.json({ id: results.insertId, name, email });
+//     }
+//   });
+// });
 
 const PORT = 3001;
 app.listen(PORT, () => {

@@ -4,27 +4,37 @@ SET FOREIGN_KEY_CHECKS = 1;
 CREATE DATABASE eecs497_db;
 USE eecs497_db;
 
--- Create child table first since parent references it
-CREATE TABLE child(
+-- 1. Create the household table
+CREATE TABLE household (
+    householdid INTEGER PRIMARY KEY AUTO_INCREMENT,
+    created DATETIME DEFAULT CURRENT_TIMESTAMP
+    -- Optionally, add other columns like household_name, address, etc.
+);
+
+-- 2. Create the child table and add a householdid column
+CREATE TABLE child (
    userid INTEGER PRIMARY KEY AUTO_INCREMENT,
    username VARCHAR(100) NOT NULL,
    age INTEGER NOT NULL,
-   totalpoints INTEGER
+   totalpoints INTEGER,
+   householdid INTEGER NOT NULL,
+   FOREIGN KEY (householdid) REFERENCES household(householdid) ON DELETE CASCADE
 );
 
--- Create parent table with proper foreign key reference
-CREATE TABLE parent(
+-- 3. Create the parent table and add a householdid column
+CREATE TABLE parent (
    userid INTEGER PRIMARY KEY AUTO_INCREMENT,
    username VARCHAR(100) NOT NULL,
    email VARCHAR(100) NOT NULL,
    password VARCHAR(256) NOT NULL,
-   child_id INTEGER,
-   FOREIGN KEY(child_id) REFERENCES child(userid) ON DELETE CASCADE
+   householdid INTEGER NOT NULL,
+   FOREIGN KEY (householdid) REFERENCES household(householdid) ON DELETE CASCADE
 );
 
--- Create calendar table
-CREATE TABLE calendar(
+-- 4. Create the calendar table (now also associated with a household)
+CREATE TABLE calendar (
    calendarid INTEGER PRIMARY KEY AUTO_INCREMENT,
+   householdid INTEGER NOT NULL,
    text VARCHAR(1024) NOT NULL,
    created DATETIME DEFAULT CURRENT_TIMESTAMP,
    mondayassignee INTEGER,
@@ -41,6 +51,7 @@ CREATE TABLE calendar(
    saturdaycompleted BOOLEAN DEFAULT FALSE,
    sundayassignee INTEGER,
    sundaycompleted BOOLEAN DEFAULT FALSE,
+   FOREIGN KEY (householdid) REFERENCES household(householdid) ON DELETE CASCADE,
    FOREIGN KEY(mondayassignee) REFERENCES child(userid),
    FOREIGN KEY(tuesdayassignee) REFERENCES child(userid),
    FOREIGN KEY(wednesdayassignee) REFERENCES child(userid),
@@ -50,8 +61,8 @@ CREATE TABLE calendar(
    FOREIGN KEY(sundayassignee) REFERENCES child(userid)
 );
 
--- Create chore table
-CREATE TABLE chore(
+-- 5. Create the chore table (referencing calendar and parent)
+CREATE TABLE chore (
    choreid INTEGER PRIMARY KEY AUTO_INCREMENT,
    choretype VARCHAR(40) NOT NULL,
    amount INTEGER NOT NULL,

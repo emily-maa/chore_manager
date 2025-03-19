@@ -1,15 +1,35 @@
--- Insert three children
-INSERT INTO child (username, age, totalpoints) VALUES 
-('Alex', 10, 150),
-('Sam', 8, 120),
-('Jamie', 12, 200);
+-- Enable foreign key checks (MySQL version of PRAGMA foreign_keys = ON)
+SET FOREIGN_KEY_CHECKS = 1;
 
--- Insert a parent linked to all children
-INSERT INTO parent (username, email, password) VALUES 
-('ParentUser', 'parent@example.com', 'hashed_password_here');
+CREATE DATABASE IF NOT EXISTS eecs497_db;
+USE eecs497_db;
 
+-------------------------------------------------
+-- Create a Household and store its ID in a variable
+-------------------------------------------------
+INSERT INTO household (created) VALUES (DEFAULT);
+SET @householdId = LAST_INSERT_ID();
+
+-------------------------------------------------
+-- Insert three children linked to the household
+-------------------------------------------------
+INSERT INTO child (username, age, totalpoints, householdid) VALUES 
+('Alex', 10, 150, @householdId),
+('Sam', 8, 120, @householdId),
+('Jamie', 12, 200, @householdId);
+
+-------------------------------------------------
+-- Insert a parent linked to the same household
+-------------------------------------------------
+INSERT INTO parent (username, email, password, householdid) VALUES 
+('ParentUser', 'parent@example.com', 'hashed_password_here', @householdId);
+
+-------------------------------------------------
 -- Create a calendar entry for trash duty rotation
+-- Note: Add the householdid column to associate the entry with the household
+-------------------------------------------------
 INSERT INTO calendar (
+  householdid,
   text, 
   mondayassignee, 
   mondaycompleted,
@@ -18,6 +38,7 @@ INSERT INTO calendar (
   fridayassignee,
   fridaycompleted
 ) VALUES (
+  @householdId,
   'Weekly Trash Duty Rotation', 
   1,    -- Alex (Monday)
   TRUE, -- Monday completed
@@ -27,78 +48,11 @@ INSERT INTO calendar (
   FALSE -- Friday not completed yet
 );
 
--- Create the "take out trash" chore linked to the calendar
-INSERT INTO chore (
-  choretype, 
-  amount, 
-  schedule, 
-  assignedby
-) VALUES (
-  'Take out trash', 
-  5,                -- 5 points per completion
-  1,                -- References the calendar entry we just created
-  1                 -- Assigned by the parent
-);
-
--- Display the created data
-SELECT 'Children:' AS '';
-SELECT * FROM child;
-
-SELECT 'Parent:' AS '';
-SELECT * FROM parent;
-
-SELECT 'Calendar:' AS '';
-SELECT * FROM calendar;
-
-SELECT 'Chore:' AS '';
-SELECT * FROM chore;
-
--- View a more readable version of the assignments
-SELECT 
-  c.choretype AS 'Chore',
-  c.amount AS 'Points',
-  c1.username AS 'Monday',
-  c2.username AS 'Wednesday',
-  c3.username AS 'Friday',
-  p.username AS 'Assigned By'
-FROM chore c
-JOIN calendar cal ON c.schedule = cal.calendarid
-JOIN child c1 ON cal.mondayassignee = c1.userid
-JOIN child c2 ON cal.wednesdayassignee = c2.userid
-JOIN child c3 ON cal.fridayassignee = c3.userid
-JOIN parent p ON c.assignedby = p.userid;
-
--- Insert three children
-INSERT INTO child (username, age, totalpoints) VALUES 
-('Alex', 10, 150),
-('Sam', 8, 120),
-('Jamie', 12, 200);
-
--- Insert a parent linked to all children
-INSERT INTO parent (username, email, password) VALUES 
-('ParentUser', 'parent@example.com', 'hashed_password_here');
-
--- Create a calendar entry for trash duty rotation
-INSERT INTO calendar (
-  text, 
-  mondayassignee, 
-  mondaycompleted,
-  wednesdayassignee, 
-  wednesdaycompleted,
-  fridayassignee,
-  fridaycompleted
-) VALUES (
-  'Weekly Trash Duty Rotation', 
-  1,    -- Alex (Monday)
-  TRUE, -- Monday completed
-  2,    -- Sam (Wednesday) 
-  FALSE,-- Wednesday not completed yet
-  3,    -- Jamie (Friday)
-  FALSE -- Friday not completed yet
-);
-
+-------------------------------------------------
 -- Create a calendar entry for dish washing
+-------------------------------------------------
 INSERT INTO calendar (
+  householdid,
   text, 
   mondayassignee, 
   mondaycompleted,
@@ -109,6 +63,7 @@ INSERT INTO calendar (
   saturdayassignee,
   saturdaycompleted
 ) VALUES (
+  @householdId,
   'Dish Washing Schedule', 
   2,    -- Sam (Monday)
   TRUE, -- Completed
@@ -120,8 +75,11 @@ INSERT INTO calendar (
   FALSE -- Not completed
 );
 
+-------------------------------------------------
 -- Create a calendar entry for pet care
+-------------------------------------------------
 INSERT INTO calendar (
+  householdid,
   text, 
   mondayassignee, 
   mondaycompleted,
@@ -138,6 +96,7 @@ INSERT INTO calendar (
   sundayassignee,
   sundaycompleted
 ) VALUES (
+  @householdId,
   'Pet Care Duties', 
   3,    -- Jamie (Monday)
   TRUE, -- Completed
@@ -155,7 +114,9 @@ INSERT INTO calendar (
   FALSE -- Not completed
 );
 
--- Create the "take out trash" chore linked to the calendar
+-------------------------------------------------
+-- Create the "take out trash" chore linked to the first calendar entry
+-------------------------------------------------
 INSERT INTO chore (
   choretype, 
   amount, 
@@ -164,11 +125,13 @@ INSERT INTO chore (
 ) VALUES (
   'Take out trash', 
   5,                -- 5 points per completion
-  1,                -- References the calendar entry we just created
-  1                 -- Assigned by the parent
+  1,                -- References the first calendar entry (assuming calendarid = 1)
+  1                 -- Assigned by the parent (assuming parent's userid = 1)
 );
 
--- Create the "wash dishes" chore 
+-------------------------------------------------
+-- Create the "wash dishes" chore linked to the second calendar entry
+-------------------------------------------------
 INSERT INTO chore (
   choretype, 
   amount, 
@@ -177,11 +140,13 @@ INSERT INTO chore (
 ) VALUES (
   'Wash dishes', 
   10,               -- 10 points per completion
-  2,                -- References the dish washing calendar
+  2,                -- References the dish washing calendar (assuming calendarid = 2)
   1                 -- Assigned by the parent
 );
 
--- Create the "feed and walk pets" chore
+-------------------------------------------------
+-- Create the "feed and walk pets" chore linked to the third calendar entry
+-------------------------------------------------
 INSERT INTO chore (
   choretype, 
   amount, 
@@ -190,9 +155,52 @@ INSERT INTO chore (
 ) VALUES (
   'Feed and walk pets', 
   15,               -- 15 points per completion
-  3,                -- References the pet care calendar
+  3,                -- References the pet care calendar (assuming calendarid = 3)
   1                 -- Assigned by the parent
 );
+
+-------------------------------------------------
+-- Display the created data
+-------------------------------------------------
+SELECT 'Children and Points:' AS '';
+SELECT 
+  child.userid,
+  child.username AS 'Name',
+  child.age AS 'Age',
+  child.totalpoints AS 'Total Points',
+  child.householdid AS 'Household ID'
+FROM child
+ORDER BY totalpoints DESC;
+
+SELECT 'Parent:' AS '';
+SELECT * FROM parent;
+
+SELECT 'Calendar:' AS '';
+SELECT * FROM calendar;
+
+SELECT 'Chore:' AS '';
+SELECT * FROM chore;
+
+-------------------------------------------------
+-- A more readable version of the assignments
+-------------------------------------------------
+SELECT 
+  c.choretype AS 'Chore',
+  c.amount AS 'Points',
+  c1.username AS 'Monday',
+  c2.username AS 'Wednesday',
+  c3.username AS 'Friday',
+  p.username AS 'Assigned By'
+FROM chore c
+JOIN calendar cal ON c.schedule = cal.calendarid
+JOIN child c1 ON cal.mondayassignee = c1.userid
+JOIN child c2 ON cal.wednesdayassignee = c2.userid
+JOIN child c3 ON cal.fridayassignee = c3.userid
+JOIN parent p ON c.assignedby = p.userid;
+
+-------------------------------------------------
+-- Additional summary queries (unchanged except that children now include householdid)
+-------------------------------------------------
 
 -- 1. Display all children and their points
 SELECT 'Children and Points:' AS '';
