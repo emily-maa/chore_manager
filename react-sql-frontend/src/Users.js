@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-
 const Users = () => {
-  const [users, setUsers] = useState([]);
+  const [children, setChildren] = useState([]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
 
@@ -11,19 +10,19 @@ const Users = () => {
   }, []);
 
   const fetchUsers = () => {
-    axios.get('http://localhost:3001/users')
+    axios.get('http://localhost:3001/child')
       .then(response => {
-        setUsers(response.data);
+        setChildren(response.data);
       })
       .catch(error => {
         console.error('There was an error fetching the users!', error);
       });
   };
-
+  // NEED TO CHANGE
   const handleAddUser = () => {
     axios.post('http://localhost:3001/users', { name, email })
       .then(response => {
-        setUsers([...users, response.data]);
+        // setUsers([...users, response.data]);
         setName('');
         setEmail('');
       })
@@ -34,10 +33,10 @@ const Users = () => {
 
   return (
     <div>
-      <h1>Users List</h1>
+      <h1>Childrens List</h1>
       <ul>
-        {users.map(user => (
-          <li key={user.id}>{user.name} - {user.email}</li>
+        {children.map(child => (
+          <li key={child.userid}>{child.username}</li>
         ))}
       </ul>
 

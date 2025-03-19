@@ -24,8 +24,8 @@ db.connect((err) => {
 });
 
 // API Endpoint Example: Fetch Users
-app.get('/users', (req, res) => {
-  db.query('SELECT * FROM users', (err, results) => {
+app.get('/child', (req, res) => {
+  db.query('SELECT * FROM child', (err, results) => {
     if (err) {
       res.status(500).send(err);
     } else {
