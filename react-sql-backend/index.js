@@ -11,7 +11,7 @@ app.use(bodyParser.json());
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'root',
-  password: 'eecs497!',
+  password: , //change based on personal DB
   database: 'eecs497_db'
 });
 
@@ -80,6 +80,265 @@ app.post('/api/households', (req, res) => {
 //     }
 //   });
 // });
+
+// Child Information
+app.get('/api/child/:userId', (req, res) => {
+  const userId = req.params.userId;
+  db.query('SELECT userid, username, age, totalpoints FROM child WHERE userid = ?', [userId], (err, results) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+    } else if (results.length === 0) {
+      res.status(404).json({ error: 'Child not found' });
+    } else {
+      res.json(results[0]);
+    }
+  });
+});
+
+//Child's chores for the day
+app.get('/api/child/:userId/todayschores', (req, res) => {
+  const userId = req.params.userId;
+  
+  // Get current day of the week (0 = Sunday, 1 = Monday, etc.)
+  const today = new Date().getDay();
+  let dayColumn, completedColumn;
+  
+  // Map JavaScript day to your database columns
+  switch(today) {
+    case 0: // Sunday
+      dayColumn = 'sundayassignee';
+      completedColumn = 'sundaycompleted';
+      break;
+    case 1: // Monday
+      dayColumn = 'mondayassignee';
+      completedColumn = 'mondaycompleted';
+      break;
+    case 2: // Tuesday
+      dayColumn = 'tuesdayassignee';
+      completedColumn = 'tuesdaycompleted';
+      break;
+    case 3: // Wednesday
+      dayColumn = 'wednesdayassignee';
+      completedColumn = 'wednesdaycompleted';
+      break;
+    case 4: // Thursday
+      dayColumn = 'thursdayassignee';
+      completedColumn = 'thursdaycompleted';
+      break;
+    case 5: // Friday
+      dayColumn = 'fridayassignee';
+      completedColumn = 'fridaycompleted';
+      break;
+    case 6: // Saturday
+      dayColumn = 'saturdayassignee';
+      completedColumn = 'saturdaycompleted';
+      break;
+  }
+  
+  // This query finds all calendar entries where this child is assigned today
+  const query = `
+    SELECT c.calendarid, c.text, c.${completedColumn} as completed, ch.choreid, ch.choretype, ch.amount 
+    FROM calendar c
+    JOIN chore ch ON c.calendarid = ch.schedule
+    WHERE c.${dayColumn} = ?
+  `;
+  
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.json(results);
+    }
+  });
+});
+
+// Calendar Week View
+app.get('/api/child/:userId/calendar', (req, res) => {
+  const userId = req.params.userId;
+  
+  // Get all calendar entries where this child is assigned on any day
+  const query = `
+    SELECT 
+      calendarid, 
+      text,
+      CASE WHEN mondayassignee = ? THEN 1 ELSE 0 END as mondayAssigned,
+      mondaycompleted as mondayCompleted,
+      CASE WHEN tuesdayassignee = ? THEN 1 ELSE 0 END as tuesdayAssigned,
+      tuesdaycompleted as tuesdayCompleted,
+      CASE WHEN wednesdayassignee = ? THEN 1 ELSE 0 END as wednesdayAssigned,
+      wednesdaycompleted as wednesdayCompleted,
+      CASE WHEN thursdayassignee = ? THEN 1 ELSE 0 END as thursdayAssigned, 
+      thursdaycompleted as thursdayCompleted,
+      CASE WHEN fridayassignee = ? THEN 1 ELSE 0 END as fridayAssigned,
+      fridaycompleted as fridayCompleted,
+      CASE WHEN saturdayassignee = ? THEN 1 ELSE 0 END as saturdayAssigned,
+      saturdaycompleted as saturdayCompleted,
+      CASE WHEN sundayassignee = ? THEN 1 ELSE 0 END as sundayAssigned,
+      sundaycompleted as sundayCompleted
+    FROM calendar
+    WHERE 
+      mondayassignee = ? OR
+      tuesdayassignee = ? OR
+      wednesdayassignee = ? OR
+      thursdayassignee = ? OR
+      fridayassignee = ? OR
+      saturdayassignee = ? OR
+      sundayassignee = ?
+  `;
+  
+  db.query(query, [userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId], (err, results) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+    } else {
+      // Join with chore table to get chore details
+      const calendarIds = results.map(r => r.calendarid);
+      
+      if (calendarIds.length === 0) {
+        return res.json([]);
+      }
+      
+      db.query('SELECT * FROM chore WHERE schedule IN (?)', [calendarIds], (choreErr, choreResults) => {
+        if (choreErr) {
+          res.status(500).json({ error: choreErr.message });
+        } else {
+          // Map chores to their calendars
+          const calendar = results.map(cal => {
+            const associatedChores = choreResults.filter(chore => chore.schedule === cal.calendarid);
+            return {
+              ...cal,
+              chores: associatedChores
+            };
+          });
+          
+          res.json(calendar);
+        }
+      });
+    }
+  });
+});
+
+// Mark a chore as complete
+app.put('/api/calendar/:calendarId/complete', (req, res) => {
+  const calendarId = req.params.calendarId;
+  const { userId, day } = req.body;
+  
+  if (!day) {
+    return res.status(400).json({ error: 'Day parameter is required' });
+  }
+  
+  // Map day name to column names
+  let assigneeColumn, completedColumn;
+  switch(day.toLowerCase()) {
+    case 'monday':
+      assigneeColumn = 'mondayassignee';
+      completedColumn = 'mondaycompleted';
+      break;
+    case 'tuesday':
+      assigneeColumn = 'tuesdayassignee';
+      completedColumn = 'tuesdaycompleted';
+      break;
+    case 'wednesday':
+      assigneeColumn = 'wednesdayassignee';
+      completedColumn = 'wednesdaycompleted';
+      break;
+    case 'thursday':
+      assigneeColumn = 'thursdayassignee';
+      completedColumn = 'thursdaycompleted';
+      break;
+    case 'friday':
+      assigneeColumn = 'fridayassignee';
+      completedColumn = 'fridaycompleted';
+      break;
+    case 'saturday':
+      assigneeColumn = 'saturdayassignee';
+      completedColumn = 'saturdaycompleted';
+      break;
+    case 'sunday':
+      assigneeColumn = 'sundayassignee';
+      completedColumn = 'sundaycompleted';
+      break;
+    default:
+      return res.status(400).json({ error: 'Invalid day parameter' });
+  }
+  
+  // Verify this child is assigned to this chore on this day
+  db.query(`SELECT ${assigneeColumn} FROM calendar WHERE calendarid = ?`, [calendarId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Calendar entry not found' });
+    }
+    
+    const assignee = results[0][assigneeColumn];
+    if (assignee != userId) {
+      return res.status(403).json({ error: 'This child is not assigned to this chore on this day' });
+    }
+    
+    // Get chore information to know points
+    db.query('SELECT amount FROM chore WHERE schedule = ?', [calendarId], (choreErr, choreResults) => {
+      if (choreErr) {
+        return res.status(500).json({ error: choreErr.message });
+      }
+      
+      if (choreResults.length === 0) {
+        return res.status(404).json({ error: 'No chore found for this calendar entry' });
+      }
+      
+      const points = choreResults[0].amount;
+      
+      // Start transaction
+      db.beginTransaction(transErr => {
+        if (transErr) {
+          return res.status(500).json({ error: transErr.message });
+        }
+        
+        // Mark as completed
+        db.query(`UPDATE calendar SET ${completedColumn} = 1 WHERE calendarid = ?`, [calendarId], (updateErr) => {
+          if (updateErr) {
+            return db.rollback(() => {
+              res.status(500).json({ error: updateErr.message });
+            });
+          }
+          
+          // Update points
+          db.query('UPDATE child SET totalpoints = totalpoints + ? WHERE userid = ?', [points, userId], (pointsErr) => {
+            if (pointsErr) {
+              return db.rollback(() => {
+                res.status(500).json({ error: pointsErr.message });
+              });
+            }
+            
+            // Commit transaction
+            db.commit(commitErr => {
+              if (commitErr) {
+                return db.rollback(() => {
+                  res.status(500).json({ error: commitErr.message });
+                });
+              }
+              
+              res.json({ 
+                message: 'Chore marked as complete',
+                pointsAwarded: points
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
+// Get the name of today
+app.get('/api/today', (req, res) => {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const today = new Date().getDay();
+  res.json({ 
+    day: days[today],
+    dayIndex: today
+  });
+});
 
 const PORT = 3001;
 app.listen(PORT, () => {
