@@ -344,3 +344,127 @@ const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+
+// Parent Api's
+
+// All Children and Their Points: Parent Landing
+app.get('/api/parentoverview', (req, res) => {
+  db.query('SELECT userid, username, totalpoints FROM child', (err, results) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.json(results);
+    }
+  });
+});
+
+
+// Get all children and their assigned chores for the current day
+app.get('/api/chores/active', (req, res) => {
+  const today = new Date().getDay(); // Get current day (0 for Sunday, 1 for Monday, etc.)
+  
+  let dayColumn = '';
+  let completedColumn = '';
+  
+  // Map the current day to the corresponding columns
+  switch (today) {
+    case 0: // Sunday
+      dayColumn = 'sundayassignee';
+      completedColumn = 'sundaycompleted';
+      break;
+    case 1: // Monday
+      dayColumn = 'mondayassignee';
+      completedColumn = 'mondaycompleted';
+      break;
+    case 2: // Tuesday
+      dayColumn = 'tuesdayassignee';
+      completedColumn = 'tuesdaycompleted';
+      break;
+    case 3: // Wednesday
+      dayColumn = 'wednesdayassignee';
+      completedColumn = 'wednesdaycompleted';
+      break;
+    case 4: // Thursday
+      dayColumn = 'thursdayassignee';
+      completedColumn = 'thursdaycompleted';
+      break;
+    case 5: // Friday
+      dayColumn = 'fridayassignee';
+      completedColumn = 'fridaycompleted';
+      break;
+    case 6: // Saturday
+      dayColumn = 'saturdayassignee';
+      completedColumn = 'saturdaycompleted';
+      break;
+    default:
+      return res.status(400).json({ error: 'Invalid day of the week' });
+  }
+  
+    // SQL query to get children and their assigned chores for the current day
+    const query = `
+    SELECT c.choreid, c.choretype, c.amount, cal.calendarid, cal.${dayColumn} AS assignee, cal.${completedColumn} AS completed, ch.username AS child_name
+    FROM chore c
+    JOIN calendar cal ON c.schedule = cal.calendarid
+    JOIN child ch ON ch.userid = cal.${dayColumn}
+    WHERE (
+      (DAYOFWEEK(CURRENT_DATE) = 2 AND cal.mondayassignee IS NOT NULL) OR
+      (DAYOFWEEK(CURRENT_DATE) = 3 AND cal.tuesdayassignee IS NOT NULL) OR
+      (DAYOFWEEK(CURRENT_DATE) = 4 AND cal.wednesdayassignee IS NOT NULL) OR
+      (DAYOFWEEK(CURRENT_DATE) = 5 AND cal.thursdayassignee IS NOT NULL) OR
+      (DAYOFWEEK(CURRENT_DATE) = 6 AND cal.fridayassignee IS NOT NULL) OR
+      (DAYOFWEEK(CURRENT_DATE) = 7 AND cal.saturdayassignee IS NOT NULL) OR
+      (DAYOFWEEK(CURRENT_DATE) = 1 AND cal.sundayassignee IS NOT NULL)
+    );
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    // Process the results to include the completion status
+    const childrenChores = results.map(row => ({
+      childName: row.username,
+      choreType: row.choretype,
+      completed: row[completedColumn] === 1 // 1 means completed, 0 means not completed
+    }));
+
+    // should look like this:
+    // {
+    //   "childName": "David",
+    //   "choreType": "Pet Care Duties",
+    //   "completed": 1
+    // }
+        
+    res.json(childrenChores);
+  });
+});
+
+
+
+// Get all chores that are not assigned and not completed for the current day
+app.get('/api/chores/inactive', (req, res) => {
+  const query = `
+    SELECT c.choreid, c.choretype, c.amount, cal.calendarid
+    FROM chore c
+    JOIN calendar cal ON c.schedule = cal.calendarid
+    WHERE (
+      (DAYOFWEEK(CURRENT_DATE) = 2 AND cal.mondayassignee IS NULL AND cal.mondaycompleted = FALSE) OR
+      (DAYOFWEEK(CURRENT_DATE) = 3 AND cal.tuesdayassignee IS NULL AND cal.tuesdaycompleted = FALSE) OR
+      (DAYOFWEEK(CURRENT_DATE) = 4 AND cal.wednesdayassignee IS NULL AND cal.wednesdaycompleted = FALSE) OR
+      (DAYOFWEEK(CURRENT_DATE) = 5 AND cal.thursdayassignee IS NULL AND cal.thursdaycompleted = FALSE) OR
+      (DAYOFWEEK(CURRENT_DATE) = 6 AND cal.fridayassignee IS NULL AND cal.fridaycompleted = FALSE) OR
+      (DAYOFWEEK(CURRENT_DATE) = 7 AND cal.saturdayassignee IS NULL AND cal.saturdaycompleted = FALSE) OR
+      (DAYOFWEEK(CURRENT_DATE) = 1 AND cal.sundayassignee IS NULL AND cal.sundaycompleted = FALSE)
+    );
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.json(results);
+    }
+  });
+});
