@@ -474,10 +474,11 @@ app.get('/api/chores/active', (req, res) => {
     
     // Process the results to include the completion status
     const childrenChores = results.map(row => ({
-      childName: row.username,
+      childName: row.child_name,
       choreType: row.choretype,
       completed: row[completedColumn] === 1 // 1 means completed, 0 means not completed
     }));
+    console.log(childrenChores);
 
     // should look like this:
     // {
@@ -564,4 +565,194 @@ app.post('/api/login/child', (req, res) => {
 
 app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working' });
+});
+
+// Insert a new chore (and corresponding calendar entry)
+app.post('/api/chores', (req, res) => {
+  const { choreType, amount, assignedChild, days, householdId, parentId } = req.body;
+  
+  // Validate required fields – adjust validations as needed
+  if (!choreType || !amount || !days || !householdId || !parentId) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+  
+  // For each day, if the checkbox is selected, assign the child; otherwise leave as null
+  const mondayAssignee    = days.monday    ? assignedChild : null;
+  const tuesdayAssignee   = days.tuesday   ? assignedChild : null;
+  const wednesdayAssignee = days.wednesday ? assignedChild : null;
+  const thursdayAssignee  = days.thursday  ? assignedChild : null;
+  const fridayAssignee    = days.friday    ? assignedChild : null;
+  const saturdayAssignee  = days.saturday  ? assignedChild : null;
+  const sundayAssignee    = days.sunday    ? assignedChild : null;
+  
+  db.beginTransaction(err => {
+    if (err) {
+      return res.status(500).json({ error: "Transaction error" });
+    }
+    
+    // Insert into calendar table
+    const calendarQuery = `
+      INSERT INTO calendar 
+      (householdid, text, mondayassignee, tuesdayassignee, wednesdayassignee, thursdayassignee, fridayassignee, saturdayassignee, sundayassignee)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    db.query(calendarQuery, [
+      householdId,
+      choreType,
+      mondayAssignee,
+      tuesdayAssignee,
+      wednesdayAssignee,
+      thursdayAssignee,
+      fridayAssignee,
+      saturdayAssignee,
+      sundayAssignee
+    ], (err, calendarResult) => {
+      if (err) {
+        return db.rollback(() => res.status(500).json({ error: err.message }));
+      }
+      
+      const calendarId = calendarResult.insertId;
+      
+      // Insert into chore table
+      const choreQuery = `
+        INSERT INTO chore (choretype, amount, schedule, assignedby)
+        VALUES (?, ?, ?, ?)
+      `;
+      db.query(choreQuery, [choreType, amount, calendarId, parentId], (err, choreResult) => {
+        if (err) {
+          return db.rollback(() => res.status(500).json({ error: err.message }));
+        }
+        
+        db.commit(err => {
+          if (err) {
+            return db.rollback(() => res.status(500).json({ error: err.message }));
+          }
+          return res.status(201).json({ message: "Chore added successfully" });
+        });
+      });
+    });
+  });
+});
+
+// DELETE endpoint to remove a chore and its calendar entry
+app.delete('/api/chores/:choreId', (req, res) => {
+  const { choreId } = req.params;
+  
+  db.beginTransaction(err => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    // Get the calendar id (schedule) from the chore record
+    db.query('SELECT schedule FROM chore WHERE choreid = ?', [choreId], (err, results) => {
+      if (err) {
+        return db.rollback(() => res.status(500).json({ error: err.message }));
+      }
+      
+      if (results.length === 0) {
+        return res.status(404).json({ error: 'Chore not found' });
+      }
+      
+      const scheduleId = results[0].schedule;
+      
+      // Delete the chore record
+      db.query('DELETE FROM chore WHERE choreid = ?', [choreId], (err) => {
+        if (err) {
+          return db.rollback(() => res.status(500).json({ error: err.message }));
+        }
+        
+        // Delete the associated calendar record
+        db.query('DELETE FROM calendar WHERE calendarid = ?', [scheduleId], (err) => {
+          if (err) {
+            return db.rollback(() => res.status(500).json({ error: err.message }));
+          }
+          
+          db.commit(err => {
+            if (err) {
+              return db.rollback(() => res.status(500).json({ error: err.message }));
+            }
+            res.json({ message: 'Chore deleted successfully' });
+          });
+        });
+      });
+    });
+  });
+});
+
+// Update an existing chore and its calendar entry
+app.put('/api/chores/:choreId', (req, res) => {
+  const { choreId } = req.params;
+  const { choreType, amount, days } = req.body;
+  
+  if (!choreType || !amount || !days) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+  
+  db.beginTransaction(err => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    // Retrieve the calendar id associated with the chore
+    db.query('SELECT schedule FROM chore WHERE choreid = ?', [choreId], (err, results) => {
+      if (err) {
+        return db.rollback(() => res.status(500).json({ error: err.message }));
+      }
+      
+      if (results.length === 0) {
+        return res.status(404).json({ error: 'Chore not found' });
+      }
+      
+      const scheduleId = results[0].schedule;
+      
+      // Update the calendar record with the new day assignments and chore text
+      const updateCalendarQuery = `
+        UPDATE calendar 
+        SET text = ?,
+            mondayassignee = ?,
+            tuesdayassignee = ?,
+            wednesdayassignee = ?,
+            thursdayassignee = ?,
+            fridayassignee = ?,
+            saturdayassignee = ?,
+            sundayassignee = ?
+        WHERE calendarid = ?
+      `;
+      
+      db.query(updateCalendarQuery, [
+        choreType,
+        days.monday || null,
+        days.tuesday || null,
+        days.wednesday || null,
+        days.thursday || null,
+        days.friday || null,
+        days.saturday || null,
+        days.sunday || null,
+        scheduleId
+      ], (err) => {
+        if (err) {
+          return db.rollback(() => res.status(500).json({ error: err.message }));
+        }
+        
+        // Update the chore record (if you want to update choretype and amount)
+        const updateChoreQuery = `
+          UPDATE chore 
+          SET choretype = ?, amount = ?
+          WHERE choreid = ?
+        `;
+        db.query(updateChoreQuery, [choreType, amount, choreId], (err) => {
+          if (err) {
+            return db.rollback(() => res.status(500).json({ error: err.message }));
+          }
+          
+          db.commit(err => {
+            if (err) {
+              return db.rollback(() => res.status(500).json({ error: err.message }));
+            }
+            res.json({ message: 'Chore updated successfully' });
+          });
+        });
+      });
+    });
+  });
 });
