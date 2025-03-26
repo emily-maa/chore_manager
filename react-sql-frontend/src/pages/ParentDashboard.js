@@ -1,132 +1,190 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
 import { 
   Container, 
   Typography, 
   Paper, 
   Box, 
-  List, 
-  ListItem, 
-  ListItemText, 
-  Button, 
-  Divider, 
+  Grid, 
+  Card, 
+  CardContent, 
+  AppBar, 
+  Toolbar, 
+  IconButton,
   CircularProgress,
-  Grid,
-  Card,
-  CardContent,
-  Chip,
-  AppBar,
-  Toolbar,
-  IconButton
+  Chip
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/Pending';
 import LogoutIcon from '@mui/icons-material/Logout';
-
-// const ParentDashboard = () => {
-//   return (
-//     <div>
-//       ParentDashboard
-//     </div>
-//   );
-// };
-// export default ParentDashboard;
+import { useNavigate } from 'react-router-dom';
 
 const ParentDashboard = () => {
-  const [loading, setLoading] = useState(true);
   const [children, setChildren] = useState([]);
+  const [today, setToday] = useState('');
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Fetch children data on component mount
+  const navigate = useNavigate();
+
   useEffect(() => {
-    const fetchChildrenData = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get('http://localhost:3001/api/child');
-        setChildren(response.data);
+        // Fetch today's name
+        const todayResponse = await axios.get('http://localhost:3001/api/today');
+        setToday(todayResponse.data.day);
+
+        // Fetch all children and their points
+        const childrenResponse = await axios.get('http://localhost:3001/api/children');
+        const childDetailsPromises = childrenResponse.data.map(async (child) => {
+          // Fetch weekly calendar for each child
+          const calendarResponse = await axios.get(`http://localhost:3001/api/child/${child.userid}/calendar`);
+          return {
+            ...child,
+            weeklyChores: calendarResponse.data
+          };
+        });
+
+        const childrenWithChores = await Promise.all(childDetailsPromises);
+        setChildren(childrenWithChores);
         setLoading(false);
       } catch (err) {
-        setError('Failed to load children data');
+        console.error('Error fetching data:', err);
+        setError('Failed to load dashboard data. Please try again later.');
         setLoading(false);
       }
     };
 
-    fetchChildrenData();
+    fetchData();
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('parentInfo');
+    navigate('/');
+  };
 
   if (loading) {
     return (
-      <Container>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
-        <Typography>Loading...</Typography>
-      </Container>
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Container>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <Typography color="error">{error}</Typography>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <div>
-      <AppBar position="static">
+    <>
+      <AppBar position="static" color="primary" sx={{ mb: 4 }}>
         <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Parent Dashboard
           </Typography>
-          <IconButton color="inherit">
+          <IconButton color="inherit" onClick={handleLogout} edge="end" aria-label="logout">
             <LogoutIcon />
           </IconButton>
         </Toolbar>
       </AppBar>
-
-      <Container>
-        <Box sx={{ marginTop: 3 }}>
+      
+      <Container maxWidth="lg" sx={{ py: 2 }}>
+        {/* Header with Today's Date */}
+        <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
           <Typography variant="h4" gutterBottom>
-            Children Overview
+            Household Overview
           </Typography>
-          <Grid container spacing={3}>
-            {children.map((child) => (
-              <Grid item xs={12} sm={6} md={4} key={child.userid}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6">{child.username}</Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Age: {child.age}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Total Points: {child.totalpoints}
-                    </Typography>
+          <Typography variant="h6" color="text.secondary">
+            Today is {today}
+          </Typography>
+        </Paper>
 
-                    <Box sx={{ marginTop: 2 }}>
-                      {child.totalpoints >= 100 ? (
-                        <Chip label="Completed" color="success" icon={<CheckCircleIcon />} />
-                      ) : (
-                        <Chip label="Pending" color="warning" icon={<PendingIcon />} />
-                      )}
-                    </Box>
+        {/* Children Points Section */}
+        <Typography variant="h5" gutterBottom>
+          Children's Points
+        </Typography>
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {children.map((child) => (
+            <Grid item xs={12} sm={6} md={4} key={child.userid}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6">{child.username}</Typography>
+                  <Typography variant="h4" color="primary">
+                    {child.totalpoints} Points
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
 
-                    <Button 
-                      component={Link} 
-                      to={`/child/${child.userid}/details`} 
-                      fullWidth 
-                      variant="outlined" 
-                      sx={{ marginTop: 2 }}
-                    >
-                      View Details
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
+        {/* Weekly Chores Overview */}
+        <Typography variant="h5" gutterBottom>
+          Weekly Chore Calendars
+        </Typography>
+        <Grid container spacing={3}>
+          {children.map((child) => (
+            <Grid item xs={12} key={child.userid}>
+              <Paper elevation={3} sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  {child.username}'s Chores
+                </Typography>
+                <Grid container spacing={2}>
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => {
+                    const dayLower = day.toLowerCase();
+                    const dayChores = child.weeklyChores.filter(
+                      cal => cal[`${dayLower}Assigned`] === 1
+                    );
+
+                    return (
+                      <Grid item xs={6} sm={4} md={3} key={day}>
+                        <Card sx={{ 
+                          height: '100%', 
+                          backgroundColor: today === day ? '#e3f2fd' : '#fff',
+                          border: today === day ? '1px solid #2196f3' : 'none'
+                        }}>
+                          <CardContent>
+                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                              {day}
+                            </Typography>
+                            {dayChores.length === 0 ? (
+                              <Typography variant="body2" color="text.secondary">
+                                No chores
+                              </Typography>
+                            ) : (
+                              dayChores.map(chore => (
+                                <Box key={chore.calendarid} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                  {chore[`${dayLower}Completed`] ? 
+                                    <CheckCircleIcon fontSize="small" color="success" sx={{ mr: 1 }} /> : 
+                                    <PendingIcon fontSize="small" color="action" sx={{ mr: 1 }} />
+                                  }
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                      textDecoration: chore[`${dayLower}Completed`] ? 'line-through' : 'none' 
+                                    }}
+                                  >
+                                    {chore.text}
+                                  </Typography>
+                                </Box>
+                              ))
+                            )}
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
       </Container>
-    </div>
+    </>
   );
 };
 
