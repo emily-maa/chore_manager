@@ -34,7 +34,7 @@ app.get('/child', (req, res) => {
   });
 });
 
-// POST /api/households endpoint to create a new household
+// API Endpoint for creating a new household
 app.post('/api/households', (req, res) => {
   const { parentUsername, children } = req.body;
 
@@ -47,39 +47,88 @@ app.post('/api/households', (req, res) => {
     return res.status(400).json({ error: 'At least one child username is required.' });
   }
 
+  // First make sure you've imported UUID at the top of your file
+  // const { v4: uuidv4 } = require('uuid');
+  
   // Generate a unique household ID
   const householdId = uuidv4();
-
-  // Create household data with parent and children (each child gets a unique ID)
-  households[householdId] = {
-    parent: { username: parentUsername },
-    children: children.map(childUsername => ({
-      username: childUsername,
-      childId: uuidv4()
-    }))
-  };
-
-  // Optional: Log the created household for debugging
-  console.log(`Household created: ${householdId}`, households[householdId]);
-
-  // Respond with the household details
-  return res.status(201).json({
-    householdId,
-    parent: households[householdId].parent,
-    children: households[householdId].children
+  
+  // Start a database transaction to ensure all related data is created together
+  db.beginTransaction(err => {
+    if (err) {
+      console.error('Transaction error:', err);
+      return res.status(500).json({ error: 'Failed to create household' });
+    }
+    
+    // Insert the household
+    db.query('INSERT INTO household (householdid) VALUES (?)', [householdId], (err, results) => {
+      if (err) {
+        return db.rollback(() => {
+          console.error('Error creating household:', err);
+          res.status(500).json({ error: 'Failed to create household' });
+        });
+      }
+      
+      // Insert the parent
+      db.query('INSERT INTO parent (username, householdid) VALUES (?, ?)', 
+        [parentUsername, householdId], 
+        (err, results) => {
+          if (err) {
+            return db.rollback(() => {
+              console.error('Error creating parent:', err);
+              res.status(500).json({ error: 'Failed to create parent' });
+            });
+          }
+          
+          // Insert all children
+          const childQueries = children.map(childUsername => {
+            return new Promise((resolve, reject) => {
+              // Generate a unique ID for each child
+              const childId = uuidv4();
+              
+              db.query('INSERT INTO child (userid, username, householdid) VALUES (?, ?, ?)', 
+                [childId, childUsername, householdId], 
+                (err, results) => {
+                  if (err) {
+                    reject(err);
+                  } else {
+                    resolve({ childId, username: childUsername });
+                  }
+                }
+              );
+            });
+          });
+          
+          Promise.all(childQueries)
+            .then(childResults => {
+              // Commit the transaction
+              db.commit(err => {
+                if (err) {
+                  return db.rollback(() => {
+                    console.error('Error committing transaction:', err);
+                    res.status(500).json({ error: 'Failed to create household' });
+                  });
+                }
+                
+                // Success! Return the created data
+                res.status(201).json({
+                  householdId,
+                  parent: { username: parentUsername },
+                  children: childResults
+                });
+              });
+            })
+            .catch(err => {
+              return db.rollback(() => {
+                console.error('Error creating children:', err);
+                res.status(500).json({ error: 'Failed to create children' });
+              });
+            });
+        }
+      );
+    });
   });
 });
-// API Endpoint Example: Add a New User
-// app.post('/users', (req, res) => {
-//   const { name, email } = req.body;
-//   db.query('INSERT INTO users (name, email) VALUES (?, ?)', [name, email], (err, results) => {
-//     if (err) {
-//       res.status(500).send(err);
-//     } else {
-//       res.json({ id: results.insertId, name, email });
-//     }
-//   });
-// });
 
 // Child Information
 app.get('/api/child/:userId', (req, res) => {
@@ -467,4 +516,52 @@ app.get('/api/chores/inactive', (req, res) => {
       res.json(results);
     }
   });
+});
+
+// API Endpoint for parent login
+app.post('/api/login/parent', (req, res) => {
+  const { householdId } = req.body;
+  
+  // Verify the household ID exists in your database
+  db.query('SELECT * FROM household WHERE householdid = ?', [householdId], (err, results) => {
+    if (err) {
+      console.error('Error validating household:', err);
+      res.status(500).send('Login failed');
+    } else if (results.length === 0) {
+      res.status(404).send('Household not found');
+    } else {
+      // If household exists, login is successful
+      res.status(200).send('Login successful');
+    }
+  });
+});
+
+// API Endpoint for child login
+app.post('/api/login/child', (req, res) => {
+  const { householdId, childUsername } = req.body;
+  
+  // Verify both the household ID and child username exist in your database
+  db.query(
+    'SELECT * FROM child WHERE householdid = ? AND username = ?',
+    [householdId, childUsername],
+    (err, results) => {
+      if (err) {
+        console.error('Error validating child:', err);
+        res.status(500).json({ error: 'Login failed' });
+      } else if (results.length === 0) {
+        res.status(404).json({ error: 'Child not found in this household' });
+      } else {
+        // If child exists in this household, login is successful
+        res.status(200).json({ 
+          message: 'Login successful',
+          childId: results[0].userid,
+          username: results[0].username
+        });
+      }
+    }
+  );
+});
+
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'API is working' });
 });

@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import CreateHousehold from './pages/CreateHousehold';
 import ParentDashboard from './pages/ParentDashboard';
 import Login from './pages/Login';
+import ChildDashboard from './pages/ChildDashboard';
 // import ChildLogin from './pages/ChildLogin';
 // import HomePage from './pages/HomePage';
 // import NotFound from './pages/NotFound';
@@ -20,6 +21,7 @@ function App() {
         <Route path="/" element={<Login/>} />
         <Route path="/create-household" element={<CreateHousehold />} />
         <Route path="/parent-dashboard" element={<ParentDashboard />} />
+        <Route path="/child-dashboard" element={<ChildDashboard />} />
         {/* <Route path="/child-login" element={<ChildLogin />} />
         <Route path="*" element={<NotFound />} /> */}
       </Routes>

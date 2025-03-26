@@ -26,8 +26,8 @@ function Login() {
   // API call to create a new household
   const handleCreateHousehold = async () => {
     try {
-      // const response = await axios.post('/api/households');
-      // setCreatedHouseholdId(response.data.householdId);
+      const response = await axios.post('/api/households');
+      setCreatedHouseholdId(response.data.householdId);
       navigate('/create-household');
     } catch (err) {
       setError('Failed to create household');
@@ -38,11 +38,12 @@ function Login() {
   const handleParentLogin = async (e) => {
     e.preventDefault();
     try {
-      // Replace this endpoint with your actual parent login endpoint
-      await axios.post('/api/login/parent', { householdId });
-      // On successful login, redirect to the parent dashboard
+      console.log('Sending login request with householdId:', householdId);
+      const response = await axios.post('http://localhost:3001/api/login/parent', { householdId });
+      console.log('Response:', response.data);
       navigate('/parent-dashboard');
     } catch (err) {
+      console.error('Error details:', err);
       setError('Parent login failed');
     }
   };
@@ -51,11 +52,22 @@ function Login() {
   const handleChildLogin = async (e) => {
     e.preventDefault();
     try {
-      // Replace this endpoint with your actual child login endpoint
-      await axios.post('/api/login/child', { householdId, childUsername });
+      // Make sure to use the full URL including port
+      const response = await axios.post('http://localhost:3001/api/login/child', { 
+        householdId, 
+        childUsername 
+      });
+      
+      // Store the child info in localStorage
+      localStorage.setItem('childInfo', JSON.stringify({
+        childId: response.data.childId,
+        username: childUsername
+      }));
+      
       // On successful login, redirect to the child dashboard
       navigate('/child-dashboard');
     } catch (err) {
+      console.error('Login error:', err.response ? err.response.data : err.message);
       setError('Child login failed');
     }
   };
