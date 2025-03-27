@@ -12,11 +12,15 @@ import {
   Toolbar, 
   IconButton,
   CircularProgress,
-  Chip
+  Chip,
+  Button
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/Pending';
 import LogoutIcon from '@mui/icons-material/Logout';
+import TaskIcon from '@mui/icons-material/Task';
+import AddIcon from '@mui/icons-material/Add'; // Add this import
+import Fab from '@mui/material/Fab'; // Add this import
 import { useNavigate } from 'react-router-dom';
 
 const ParentDashboard = () => {
@@ -86,6 +90,14 @@ const ParentDashboard = () => {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Parent Dashboard
           </Typography>
+          <Button 
+            color="inherit" 
+            startIcon={<TaskIcon />}
+            onClick={() => navigate('/parent-task')}
+            sx={{ mr: 2 }}
+          >
+            Manage Tasks
+          </Button>
           <IconButton color="inherit" onClick={handleLogout} edge="end" aria-label="logout">
             <LogoutIcon />
           </IconButton>
@@ -184,6 +196,18 @@ const ParentDashboard = () => {
           ))}
         </Grid>
       </Container>
+      <Fab 
+        color="primary" 
+        aria-label="add chore"
+        onClick={() => navigate('/parent-task?action=add')}
+        style={{ 
+          position: 'fixed', 
+          bottom: 20, 
+          right: 20 
+        }}
+      >
+        <AddIcon />
+      </Fab>
     </>
   );
 };

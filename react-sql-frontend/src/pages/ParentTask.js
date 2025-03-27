@@ -99,8 +99,19 @@ const ParentTask = () => {
 
   // Fetch all data when the component mounts
   useEffect(() => {
+    // Fetch all data when the component mounts
     Promise.all([fetchActiveChores(), fetchInactiveChores(), fetchChildren()])
-      .then(() => setLoading(false));
+      .then(() => {
+        setLoading(false);
+        
+        // Check URL parameters for actions
+        const queryParams = new URLSearchParams(window.location.search);
+        const action = queryParams.get('action');
+        
+        if (action === 'add') {
+          handleAddChore();
+        }
+      });
   }, []);
 
   // Handle change for each day's assignment

@@ -11,7 +11,7 @@ app.use(bodyParser.json());
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'root',
-  password: 'eecs497!', //change based on personal DB
+  password: '', //change based on personal DB
   database: 'eecs497_db'
 });
 
@@ -754,5 +754,17 @@ app.put('/api/chores/:choreId', (req, res) => {
         });
       });
     });
+  });
+});
+
+// Get all children
+app.get('/api/children', (req, res) => {
+  db.query('SELECT * FROM child', (err, results) => {
+    if (err) {
+      console.error('Error fetching children:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    
+    res.json(results);
   });
 });
