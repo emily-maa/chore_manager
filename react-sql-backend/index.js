@@ -474,6 +474,7 @@ app.get('/api/chores/active', (req, res) => {
     
     // Process the results to include the completion status
     const childrenChores = results.map(row => ({
+      choreid: row.choreid,
       childName: row.child_name,
       choreType: row.choretype,
       completed: row[completedColumn] === 1 // 1 means completed, 0 means not completed
@@ -567,30 +568,28 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working' });
 });
 
-// Insert a new chore (and corresponding calendar entry)
 app.post('/api/chores', (req, res) => {
-  const { choreType, amount, assignedChild, days, householdId, parentId } = req.body;
+  const { choreType, amount, days, householdId, parentId } = req.body;
   
-  // Validate required fields – adjust validations as needed
   if (!choreType || !amount || !days || !householdId || !parentId) {
     return res.status(400).json({ error: "Missing required fields" });
   }
   
-  // For each day, if the checkbox is selected, assign the child; otherwise leave as null
-  const mondayAssignee    = days.monday    ? assignedChild : null;
-  const tuesdayAssignee   = days.tuesday   ? assignedChild : null;
-  const wednesdayAssignee = days.wednesday ? assignedChild : null;
-  const thursdayAssignee  = days.thursday  ? assignedChild : null;
-  const fridayAssignee    = days.friday    ? assignedChild : null;
-  const saturdayAssignee  = days.saturday  ? assignedChild : null;
-  const sundayAssignee    = days.sunday    ? assignedChild : null;
+  // Use the provided day assignments from the payload
+  const mondayAssignee    = days.monday    || null;
+  const tuesdayAssignee   = days.tuesday   || null;
+  const wednesdayAssignee = days.wednesday || null;
+  const thursdayAssignee  = days.thursday  || null;
+  const fridayAssignee    = days.friday    || null;
+  const saturdayAssignee  = days.saturday  || null;
+  const sundayAssignee    = days.sunday    || null;
   
   db.beginTransaction(err => {
     if (err) {
       return res.status(500).json({ error: "Transaction error" });
     }
     
-    // Insert into calendar table
+    // Insert into calendar table with proper day assignments
     const calendarQuery = `
       INSERT INTO calendar 
       (householdid, text, mondayassignee, tuesdayassignee, wednesdayassignee, thursdayassignee, fridayassignee, saturdayassignee, sundayassignee)
@@ -627,12 +626,13 @@ app.post('/api/chores', (req, res) => {
           if (err) {
             return db.rollback(() => res.status(500).json({ error: err.message }));
           }
-          return res.status(201).json({ message: "Chore added successfully" });
+          res.status(201).json({ message: "Chore added successfully" });
         });
       });
     });
   });
 });
+
 
 // DELETE endpoint to remove a chore and its calendar entry
 app.delete('/api/chores/:choreId', (req, res) => {

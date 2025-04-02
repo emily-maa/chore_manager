@@ -116,12 +116,15 @@ const ParentTask = () => {
 
   // Handle change for each day's assignment
   const handleDayChange = (day, value) => {
+    console.log(`Day changed: ${day} = ${value}`);
     setSelectedDays(prev => ({ ...prev, [day]: value }));
+    console.log(selectedDays);
   };
 
   // Handle form submission for add/edit
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     // Build payload – householdId and parentId are hardcoded for now; in production, retrieve from session.
     const payload = {
       choreType: choreName,
@@ -138,6 +141,7 @@ const ParentTask = () => {
       householdId: "1", // Replace with actual household id
       parentId: "1"     // Replace with actual parent id
     };
+    console.log("payload:", payload);
     
     try {
       let res;
