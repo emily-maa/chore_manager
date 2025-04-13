@@ -18,11 +18,16 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  IconButton,
   FormControl,
   InputLabel,
   Select,
   MenuItem
 } from '@mui/material';
+import LogoutIcon from '@mui/icons-material/Logout';
+import HomeIcon from '@mui/icons-material/Home';
+import { AppBar, Toolbar } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
 const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
@@ -32,6 +37,8 @@ const ParentTask = () => {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const navigate = useNavigate();
   
   // For the Add/Edit dialog
   const [open, setOpen] = useState(false);
@@ -63,6 +70,12 @@ const ParentTask = () => {
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('parentInfo');
+    localStorage.removeItem('householdid');
+    navigate('/');
   };
 
   // Fetch inactive chores (unassigned chores for the day)
@@ -262,167 +275,187 @@ const ParentTask = () => {
   }
 
   return (
-    <Box p={2}>
-      <Typography variant="h4" gutterBottom>
-        Parent Dashboard
-      </Typography>
-
-      {/* Active (Assigned) Chores Section */}
-      <Box my={3}>
-        <Typography variant="h5" gutterBottom>
-          Today's Chores
-        </Typography>
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Child Name</TableCell>
-                <TableCell>Chore Type</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {activeChores.length > 0 ? (
-                activeChores.map((chore) => (
-                  <TableRow key={chore.choreid}>
-                    <TableCell>{chore.childName || "Unassigned"}</TableCell>
-                    <TableCell>{chore.choreType}</TableCell>
-                    <TableCell>
-                      <Checkbox checked={!!chore.completed} disabled />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outlined"
-                        onClick={() => handleEditChore(chore)}
-                        sx={{ mr: 1 }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        onClick={() => handleDeleteChore(chore.choreid)}
-                      >
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} align="center">
-                    No active chores for today.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-
-      {/* Inactive (Unassigned) Chores Section */}
-      <Box my={3}>
-        <Typography variant="h5" gutterBottom>
-          Unassigned Chores
-        </Typography>
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Chore Type</TableCell>
-                <TableCell>Amount</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {inactiveChores.length > 0 ? (
-                inactiveChores.map((chore) => (
-                  <TableRow key={chore.choreid}>
-                    <TableCell>{chore.choretype}</TableCell>
-                    <TableCell>{chore.amount}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outlined"
-                        onClick={() => handleEditChore(chore)}
-                        sx={{ mr: 1 }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        onClick={() => handleDeleteChore(chore.choreid)}
-                      >
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={3} align="center">
-                    No unassigned chores for today.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-
-      <Button variant="contained" color="primary" onClick={handleAddChore}>
-        Add Chore
-      </Button>
-
-      {/* Add/Edit Chore Dialog */}
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{editingChore ? "Edit Chore" : "Add New Chore"}</DialogTitle>
-        <DialogContent>
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-            <TextField
-              label="Chore Name"
-              fullWidth
-              margin="normal"
-              value={choreName}
-              onChange={(e) => setChoreName(e.target.value)}
-            />
-            <TextField
-              label="Point Value"
-              fullWidth
-              margin="normal"
-              type="number"
-              value={pointValue}
-              onChange={(e) => setPointValue(e.target.value)}
-            />
-            {daysOfWeek.map((day) => (
-              <FormControl key={day} fullWidth margin="normal">
-                <InputLabel id={`${day}-label`}>{day.charAt(0).toUpperCase() + day.slice(1)}</InputLabel>
-                <Select
-                  labelId={`${day}-label`}
-                  value={selectedDays[day]}
-                  label={day.charAt(0).toUpperCase() + day.slice(1)}
-                  onChange={(e) => handleDayChange(day, e.target.value)}
-                >
-                  <MenuItem value=""><em>Unassigned</em></MenuItem>
-                  {children.map((child) => (
-                    <MenuItem key={child.userid} value={child.userid}>
-                      {child.username}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            ))}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="primary" onClick={handleSubmit}>
-            {editingChore ? "Update" : "Submit"}
+    <>
+      <AppBar position="static" sx={{ mb: 4 }}>
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            Parent Task Manager
+          </Typography>
+          <Button 
+            color="inherit" 
+            startIcon={<HomeIcon />}
+            onClick={() => navigate('/parent-dashboard')}
+            sx={{ mr: 2 }}
+          >
+            Dashboard
           </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+          <IconButton color="inherit" onClick={handleLogout} edge="end" aria-label="logout">
+            <LogoutIcon />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+      <Box p={2}>
+        <Typography variant="h4" gutterBottom>
+          Parent Dashboard
+        </Typography>
+
+        {/* Active (Assigned) Chores Section */}
+        <Box my={3}>
+          <Typography variant="h5" gutterBottom>
+            Today's Chores
+          </Typography>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Child Name</TableCell>
+                  <TableCell>Chore Type</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {activeChores.length > 0 ? (
+                  activeChores.map((chore) => (
+                    <TableRow key={chore.choreid}>
+                      <TableCell>{chore.childName || "Unassigned"}</TableCell>
+                      <TableCell>{chore.choreType}</TableCell>
+                      <TableCell>
+                        <Checkbox checked={!!chore.completed} disabled />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outlined"
+                          onClick={() => handleEditChore(chore)}
+                          sx={{ mr: 1 }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleDeleteChore(chore.choreid)}
+                        >
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center">
+                      No active chores for today.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+
+        {/* Inactive (Unassigned) Chores Section */}
+        <Box my={3}>
+          <Typography variant="h5" gutterBottom>
+            Unassigned Chores
+          </Typography>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Chore Type</TableCell>
+                  <TableCell>Amount</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {inactiveChores.length > 0 ? (
+                  inactiveChores.map((chore) => (
+                    <TableRow key={chore.choreid}>
+                      <TableCell>{chore.choretype}</TableCell>
+                      <TableCell>{chore.amount}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outlined"
+                          onClick={() => handleEditChore(chore)}
+                          sx={{ mr: 1 }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleDeleteChore(chore.choreid)}
+                        >
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} align="center">
+                      No unassigned chores for today.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+
+        <Button variant="contained" color="primary" onClick={handleAddChore}>
+          Add Chore
+        </Button>
+
+        {/* Add/Edit Chore Dialog */}
+        <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>{editingChore ? "Edit Chore" : "Add New Chore"}</DialogTitle>
+          <DialogContent>
+            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+              <TextField
+                label="Chore Name"
+                fullWidth
+                margin="normal"
+                value={choreName}
+                onChange={(e) => setChoreName(e.target.value)}
+              />
+              <TextField
+                label="Point Value"
+                fullWidth
+                margin="normal"
+                type="number"
+                value={pointValue}
+                onChange={(e) => setPointValue(e.target.value)}
+              />
+              {daysOfWeek.map((day) => (
+                <FormControl key={day} fullWidth margin="normal">
+                  <InputLabel id={`${day}-label`}>{day.charAt(0).toUpperCase() + day.slice(1)}</InputLabel>
+                  <Select
+                    labelId={`${day}-label`}
+                    value={selectedDays[day]}
+                    label={day.charAt(0).toUpperCase() + day.slice(1)}
+                    onChange={(e) => handleDayChange(day, e.target.value)}
+                  >
+                    <MenuItem value=""><em>Unassigned</em></MenuItem>
+                    {children.map((child) => (
+                      <MenuItem key={child.userid} value={child.userid}>
+                        {child.username}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ))}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="contained" color="primary" onClick={handleSubmit}>
+              {editingChore ? "Update" : "Submit"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </>
   );
 };
 
