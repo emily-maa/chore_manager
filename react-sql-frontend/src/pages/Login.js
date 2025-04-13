@@ -40,6 +40,15 @@ function Login() {
     try {
       console.log('Sending login request with householdId:', householdId);
       const response = await axios.post('http://localhost:3001/api/login/parent', { householdId });
+
+       // Store householdId in localStorage
+       console.log('About to store householdId:', householdId);
+       localStorage.setItem('householdid', householdId);
+       console.log('Stored householdId:', localStorage.getItem('householdid'));
+
+
+      console.log('Household id is: ', householdId)
+
       console.log('Response:', response.data);
       navigate('/parent-dashboard');
     } catch (err) {

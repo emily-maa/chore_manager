@@ -389,17 +389,30 @@ app.get('/api/today', (req, res) => {
   });
 });
 
-const PORT = 3001;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
 
 // Parent Api's
 
 // All Children and Their Points: Parent Landing
-app.get('/api/parentoverview', (req, res) => {
-  db.query('SELECT userid, username, totalpoints FROM child', (err, results) => {
+// app.get('/api/children', (req, res) => {
+//   db.query('SELECT userid, username, totalpoints FROM child', (err, results) => {
+//     if (err) {
+//       res.status(500).json({ error: err.message });
+//     } else {
+//       res.json(results);
+//     }
+//   });
+// });
+
+// Get all children for a specific household
+app.get('/api/children', (req, res) => {
+  const householdId = req.query.householdid; // e.g., /api/children?householdid=3
+
+  if (!householdId) {
+    return res.status(400).json({ error: 'householdid is required' });
+  }
+
+  const query = 'SELECT userid, username, totalpoints FROM child WHERE householdid = ?';
+  db.query(query, [householdId], (err, results) => {
     if (err) {
       res.status(500).json({ error: err.message });
     } else {
@@ -757,14 +770,20 @@ app.put('/api/chores/:choreId', (req, res) => {
   });
 });
 
-// Get all children
-app.get('/api/children', (req, res) => {
-  db.query('SELECT * FROM child', (err, results) => {
-    if (err) {
-      console.error('Error fetching children:', err);
-      return res.status(500).json({ error: err.message });
-    }
-    
-    res.json(results);
-  });
+
+const PORT = 3001;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
+
+// // Get all children
+// app.get('/api/children', (req, res) => {
+//   db.query('SELECT * FROM child', (err, results) => {
+//     if (err) {
+//       console.error('Error fetching children:', err);
+//       return res.status(500).json({ error: err.message });
+//     }
+    
+//     res.json(results);
+//   });
+// });

@@ -82,7 +82,10 @@ const ParentTask = () => {
   // Fetch children for the dropdown
   const fetchChildren = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/parentoverview');
+      // const response = await fetch('http://localhost:3001/api/children');
+      const householdId = localStorage.getItem('householdid');
+      console.log('Fetched householdid:', householdId);
+      const response = await fetch(`http://localhost:3001/api/children?householdid=${householdId}`)
       if (!response.ok) {
         throw new Error('Error fetching children');
       }

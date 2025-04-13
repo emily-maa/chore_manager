@@ -12,7 +12,6 @@ import {
   Toolbar, 
   IconButton,
   CircularProgress,
-  Chip,
   Button
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -39,7 +38,11 @@ const ParentDashboard = () => {
         setToday(todayResponse.data.day);
 
         // Fetch all children and their points
-        const childrenResponse = await axios.get('http://localhost:3001/api/children');
+        // const childrenResponse = await axios.get('http://localhost:3001/api/children');
+        const householdId = localStorage.getItem('householdid');
+        console.log('Fetched householdid:', householdId);
+        const childrenResponse = await axios.get(`http://localhost:3001/api/children?householdid=${householdId}`);
+
         const childDetailsPromises = childrenResponse.data.map(async (child) => {
           // Fetch weekly calendar for each child
           const calendarResponse = await axios.get(`http://localhost:3001/api/child/${child.userid}/calendar`);
@@ -64,6 +67,7 @@ const ParentDashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('parentInfo');
+    localStorage.removeItem('householdid');
     navigate('/');
   };
 
